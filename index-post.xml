@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dleplugin>
+	<name>Index post</name>
+	<description>Добавляет шаблоны для модулей вывода новостей с возможностью вывести информацию какую позицию занимает новость на главной и в категориях, а так же на какой странице они находятся.</description>
+	<icon></icon>
+	<version></version>
+	<dleversion>14</dleversion>
+	<versioncompare>greater</versioncompare>
+	<upgradeurl></upgradeurl>
+	<filedelete>0</filedelete>
+	<needplugin></needplugin>
+	<mnotice>1</mnotice>
+	<mysqlinstall><![CDATA[]]></mysqlinstall>
+	<mysqlupgrade><![CDATA[]]></mysqlupgrade>
+	<mysqlenable><![CDATA[]]></mysqlenable>
+	<mysqldisable><![CDATA[]]></mysqldisable>
+	<mysqldelete><![CDATA[]]></mysqldelete>
+	<phpinstall><![CDATA[]]></phpinstall>
+	<phpupgrade><![CDATA[]]></phpupgrade>
+	<phpenable><![CDATA[]]></phpenable>
+	<phpdisable><![CDATA[]]></phpdisable>
+	<phpdelete><![CDATA[]]></phpdelete>
+	<notice><![CDATA[<p>@<a href="https://t.me/TeraMoune" target="_blank">TeraMoune</a></p>
+<details><summary style="color:#ff720e;font-weight:500" role="button">Click here!</summary>Теги в шаблоны: краткой, полной новости и в шаблоны пользовательского вывода новостей.
+
+[code][template_index]
+	[index-line] {index-category} - {index-num} - {index-page} [/index-line]
+[/template_index][/code]
+<ul><li>Содержимое [b]index-line[/b] дублируется в количестве равному количеству категорий новости. И в каждом блоке будут данные относящиеся к конкретной категории.</li><li>Можно записать тег с указанием категорий [index-line="14,15-17"] и вывести информацию только за конкретные категории.</li></ul></details>
+<details><summary style="color:green;font-weight:500" role="button">[b]Для благодарности[/b]</summary><ul style="margin-bottom: 0;"><li>[b]<span style="color:rgb(127,43,253);">Ю</span>Money[/b]: 4100115063692304</li><li>[b]<span style="color:#FF8C00;">Qiwi</span> nickname[/b]: TERAMOUNE</li><li>[b]<span style="color:#006cb4;">WMZ[/b]</span>: Z990082286464</li></ul></details>
+<p>Другие плагины на <a href="https://github.com/TeraMoune" target="_blank">[b]GitHub[/b]</a></p>]]></notice>
+	<file name="engine/modules/functions.php">
+		<operation action="before">
+			<searchcode><![CDATA[function dle_session( $sid = false ) {]]></searchcode>
+			<replacecode><![CDATA[function postIndex_template( $matches=array() ) {
+	global $indexPost, $row, $config, $cat_info, $tpl;
+	
+	$current_index = $indexPost[$row['id']];
+
+	if( is_array($current_index) ) {	
+		
+		preg_match("#\\[index-line(=['\"](.+?)['\"])?\\](.+?)\\[/index-line\\]#is", $matches[1], $find_index_line);
+		$index_tmp = array();
+		
+		foreach( $current_index as $key => $val ) {
+				
+			$temp 	= $find_index_line[3];
+			$cid 	= explode(',', $find_index_line[2]);
+			
+          	if( $cid AND !$tpl->_in_rangearray($cat_info[$key]['id'], $cid) ) continue;
+			//if( $cid AND $cat_info[$key]['id'] != $cid ) continue;
+			
+			$n_number = $config['news_number'];
+			
+			if( $key != 'main' ) {
+				if($cat_info[$key]['news_number']) $n_number = $cat_info[$key]['news_number'];
+			}
+			
+			$temp = str_ireplace("{index-category}", ($key == 'main' ? 'На главной: ' : 'В категории: '.$cat_info[$key]['name']), $temp);
+			$temp = str_ireplace("{index-num}", intval($val), $temp);
+			$temp = str_ireplace("{index-page}", ceil($val / $n_number), $temp);
+			$index_tmp[] = $temp;	
+		}
+		
+		if( $find_index_line[0] ) {
+			$return = implode('', $index_tmp);
+			
+			return $return;
+		}
+	}
+	
+	return;
+}
+
+function postIndex() {
+  	global $db, $config, $cat_info;
+  
+  	$index = array();
+  
+  	$news_sort_by 		= ($config['news_sort']) 	? $config['news_sort'] 	: "date";
+	$news_direction_by 	= ($config['news_msort']) 	? $config['news_msort'] : "DESC";
+  
+	if ($config['allow_fixed']) $fixed = "fixed desc, ";
+	else $fixed = "";  
+  
+  	$post = $db->super_query("SELECT id FROM `".PREFIX."_post` WHERE approve=1 AND allow_main=1 ORDER BY " . $fixed . $news_sort_by . " " . $news_direction_by, true);
+  	
+  	$i = 1;
+      
+  	foreach( $post as $index_p ) {
+      
+      	if( !isset($index[$index_p['id']]) ) {
+         	 $index[$index_p['id']] = array();
+        }
+		
+      	$index[$index_p['id']]['main'] = $i;
+      	$i++;
+    }
+
+  	foreach( $cat_info as $category ) {
+      
+    //Игнорирование указанных категорий  
+    if( in_array($category['id'], array(0) ) ) continue; 
+      
+	if ( $cat_info[$category['id']]['show_sub'] ) {
+
+		if ( $cat_info[$category['id']]['show_sub'] == 1 ) $get_cats = get_sub_cats ( $category['id'] );
+		else { $get_cats = $category['id']; $allow_sub_cats = false; }
+
+	} else {
+
+		if ( $config['show_sub_cats'] ) $get_cats = get_sub_cats ( $category['id'] );
+		else { $get_cats = $category['id']; $allow_sub_cats = false; }
+
+	}
+
+	if ($cat_info[$category['id']]['news_sort']) $news_sort_by = $cat_info[$category['id']]['news_sort'];
+	if ($cat_info[$category['id']]['news_msort']) $news_direction_by = $cat_info[$category['id']]['news_msort'];
+			
+	if ($config['allow_multi_category']) {
+		
+		$get_cats = str_replace ( "|", "','", $get_cats );
+		$join_category = "INNER JOIN (SELECT DISTINCT(" . PREFIX . "_post_extras_cats.news_id) FROM " . PREFIX . "_post_extras_cats WHERE cat_id IN ('" . $get_cats . "')) c ON (p.id=c.news_id) ";
+		$where_category = "";
+				
+	} else {
+				
+		if ( $allow_sub_cats ) {
+					
+			$get_cats = str_replace ( "|", "','", $get_cats );
+			$where_category = "category IN ('" . $get_cats . "') AND ";
+				
+		} else {
+					
+			$where_category = "category = '{$get_cats}' AND ";
+				
+		}
+				
+		$join_category = "";
+			
+	}
+
+    $post = $db->super_query("SELECT p.id FROM " . PREFIX . "_post p {$join_category}WHERE {$where_category}approve=1 ORDER BY " . $fixed . $news_sort_by . " " . $news_direction_by, true);  
+ 
+  	$i = 1;
+      
+  	foreach( $post as $index_p ) {
+      
+      	if( !isset($index[$index_p['id']]) ) {
+         	 $index[$index_p['id']] = array();
+        }
+		
+      	$index[$index_p['id']][$category['id']] = $i;
+      	$i++;
+    }      
+      
+    }
+  	
+    return $index;
+}]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/init.php">
+		<operation action="before">
+			<searchcode><![CDATA[$category_skin = "";]]></searchcode>
+			<replacecode><![CDATA[$indexPost = get_vars ( "index_post" );
+
+if( !is_array ( $indexPost ) ) {
+  	$indexPost = postIndex();
+  	set_vars ( "index_post", postIndex() );
+}]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/show.short.php">
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if( $is_logged and $member_id['name'] == $row['autor'] ) {
+			
+	$current_index = $indexPost[$row['id']];		
+	
+	preg_match("#\\[template_index\\](.+?)\\[/template_index\\]#is", $tpl->copy_template, $template_index);
+	
+	if( is_array($current_index) AND $template_index[0] ) {	
+		
+		$tpl->set( '[template_index]', '' );
+		$tpl->set( '[/template_index]', '' );
+			
+		preg_match("#\\[index-line\\](.+?)\\[/index-line\\]#is", $tpl->copy_template, $find_index_line);
+			
+
+		$index_tmp = array();
+			
+		foreach( $current_index as $key => $val ) {
+				
+			$temp = $find_index_line[1];
+			
+			$n_number = $config['news_number'];
+			
+			if( $key != 'main' ) {
+				if ($cat_info[$key]['news_number']) $n_number = $cat_info[$key]['news_number'];
+			}
+			
+			$temp = str_ireplace("{index-category}", ($key == 'main' ? 'На главной: ' : 'В категории: '.$cat_info[$key]['name']), $temp);
+			$temp = str_ireplace("{index-num}", intval($val), $temp);
+			$temp = str_ireplace("{index-page}", ceil($val / $n_number), $temp);
+			$index_tmp[] = $temp;		
+		}
+			
+		if( $find_index_line[0] ) $tpl->copy_template = str_replace($find_index_line[0], implode('', $index_tmp), $tpl->copy_template);
+
+		
+	} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );
+
+} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );]]></replacecode>
+			<enabled>0</enabled>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if (stripos ( $tpl->copy_template, "[template_index" ) !== false) {
+	$tpl->copy_template = preg_replace_callback ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "postIndex_template", $tpl->copy_template );
+}	]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/show.full.php">
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if( $is_logged and $member_id['name'] == $row['autor'] ) {
+			
+	$current_index = $indexPost[$row['id']];		
+	
+	preg_match("#\\[template_index\\](.+?)\\[/template_index\\]#is", $tpl->copy_template, $template_index);
+	
+	if( is_array($current_index) AND $template_index[0] ) {	
+		
+		$tpl->set( '[template_index]', '' );
+		$tpl->set( '[/template_index]', '' );
+			
+		preg_match("#\\[index-line\\](.+?)\\[/index-line\\]#is", $tpl->copy_template, $find_index_line);
+			
+
+		$index_tmp = array();
+			
+		foreach( $current_index as $key => $val ) {
+				
+			$temp = $find_index_line[1];
+			
+			$n_number = $config['news_number'];
+			
+			if( $key != 'main' ) {
+				if ($cat_info[$key]['news_number']) $n_number = $cat_info[$key]['news_number'];
+			}
+			
+			$temp = str_ireplace("{index-category}", ($key == 'main' ? 'На главной: ' : 'В категории: '.$cat_info[$key]['name']), $temp);
+			$temp = str_ireplace("{index-num}", intval($val), $temp);
+			$temp = str_ireplace("{index-page}", ceil($val / $n_number), $temp);
+			$index_tmp[] = $temp;		
+		}
+			
+		if( $find_index_line[0] ) $tpl->copy_template = str_replace($find_index_line[0], implode('', $index_tmp), $tpl->copy_template);
+
+		
+	} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );
+
+} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );]]></replacecode>
+			<enabled>0</enabled>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if (stripos ( $tpl->copy_template, "[template_index" ) !== false) {
+	$tpl->copy_template = preg_replace_callback ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "postIndex_template", $tpl->copy_template );
+}	]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/show.custom.php">
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if( $is_logged and $member_id['name'] == $row['autor'] ) {
+			
+	$current_index = $GLOBALS['indexPost'][$row['id']];		
+	
+	preg_match("#\\[template_index\\](.+?)\\[/template_index\\]#is", $tpl->copy_template, $template_index);
+	
+	if( is_array($current_index) AND $template_index[0] ) {	
+		
+		$tpl->set( '[template_index]', '' );
+		$tpl->set( '[/template_index]', '' );
+			
+		preg_match("#\\[index-line\\](.+?)\\[/index-line\\]#is", $tpl->copy_template, $find_index_line);
+			
+
+		$index_tmp = array();
+			
+		foreach( $current_index as $key => $val ) {
+				
+			$temp = $find_index_line[1];
+			
+			$n_number = $config['news_number'];
+			
+			if( $key != 'main' ) {
+				if ($cat_info[$key]['news_number']) $n_number = $cat_info[$key]['news_number'];
+			}
+			
+			$temp = str_ireplace("{index-category}", ($key == 'main' ? 'На главной: ' : 'В категории: '.$cat_info[$key]['name']), $temp);
+			$temp = str_ireplace("{index-num}", intval($val), $temp);
+			$temp = str_ireplace("{index-page}", ceil($val / $n_number), $temp);
+			$index_tmp[] = $temp;		
+		}
+			
+		if( $find_index_line[0] ) $tpl->copy_template = str_replace($find_index_line[0], implode('', $index_tmp), $tpl->copy_template);
+
+		
+	} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );
+
+} else $tpl->copy_template = preg_replace ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "", $tpl->copy_template );]]></replacecode>
+			<enabled>0</enabled>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[$tpl->set( '', $news_find );]]></searchcode>
+			<replacecode><![CDATA[if (stripos ( $tpl->copy_template, "[template_index" ) !== false) {
+	$tpl->copy_template = preg_replace_callback ( "#\\[template_index\\](.+?)\\[/template_index\\]#is", "postIndex_template", $tpl->copy_template );
+}	]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/addnews.php">
+		<operation action="after">
+			<searchcode><![CDATA[clear_cache( array('full_'.$row['id'], 'comm_'.$row['id']) );]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[clear_cache( array('news_', 'related_', 'tagscloud_', 'archives_', 'calendar_', 'topnews_', 'rss', 'stats') );]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/inc/addnews.php">
+		<operation action="after">
+			<searchcode><![CDATA[clear_cache( array('news_', 'tagscloud_', 'archives_', 'calendar_', 'topnews_', 'rss', 'stats') );]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/inc/editnews.php">
+		<operation action="before">
+			<searchcode><![CDATA[if( $no_permission ) {]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/cron.php">
+		<operation action="after">
+			<searchcode><![CDATA[clear_cache();]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+	<file name="engine/modules/deletenews.php">
+		<operation action="after">
+			<searchcode><![CDATA[clear_cache();]]></searchcode>
+			<replacecode><![CDATA[@unlink(ENGINE_DIR.'/cache/system/index_post.php');]]></replacecode>
+			<enabled>1</enabled>
+		</operation>
+	</file>
+</dleplugin>
