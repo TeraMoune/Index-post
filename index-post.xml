@@ -27,7 +27,7 @@
 	[index-line] {index-category} - {index-num} - {index-page} [/index-line]
 [/template_index][/code]
 <ul><li>Содержимое [b]index-line[/b] дублируется в количестве равному количеству категорий новости. И в каждом блоке будут данные относящиеся к конкретной категории.</li><li>Можно записать тег с указанием категорий [index-line="14,15-17"] и вывести информацию только за конкретные категории.</li></ul></details>
-<details><summary style="color:green;font-weight:500" role="button">[b]Для благодарности[/b]</summary><ul style="margin-bottom: 0;"><li>[b]<span style="color:rgb(127,43,253);">Ю</span>Money[/b]: 4100115063692304</li><li>[b]<span style="color:#FF8C00;">Qiwi</span> nickname[/b]: TERAMOUNE</li><li>[b]<span style="color:#006cb4;">WMZ[/b]</span>: Z990082286464</li></ul></details>
+<details><summary style="color:green;font-weight:500" role="button">[b]Для благодарности[/b]</summary><ul style="margin-bottom: 0;"><li>[b]<span style="color:rgb(127,43,253);">Ю</span>Money[/b]: 4100115063692304</li><li>[b]<span style="color:#FF8C00;">Qiwi</span> nickname[/b]: TERAMOUNE</li></ul></details>
 <p>Другие плагины на <a href="https://github.com/TeraMoune" target="_blank">[b]GitHub[/b]</a></p>]]></notice>
 	<file name="engine/modules/functions.php">
 		<operation action="before">
